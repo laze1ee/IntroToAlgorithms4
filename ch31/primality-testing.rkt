@@ -7,56 +7,55 @@
 
 (define pseudoprime
   (lambda (n)
-    (if (= 1 (modular-expt 2 (sub1 n) n))
+    (if (= 1 (mod-expt 2 (sub1 n) n))
       #t
       #f)))
 
 
 
-(define composite
+(define t-of
   (lambda (n)
-    (let f ([t 0]
-            [u n])
-      (if (= 0 (remainder u 2))
-        (f (add1 t) (/ u 2))
-        (list t u)))))
+    (if (even? n)
+      (+ 1 (t-of (/ n 2)))
+      0)))
 
+(define u-of
+  (lambda (n)
+    (if (even? n)
+      (u-of (/ n 2))
+      n)))
 
 (define witness
   (lambda (a n)
-    (let* ([result (composite (sub1 n))]
-           [t (0th result)]
-           [u (1st result)]
-           [x0 (modular-expt a u n)]
-           [x1 x0])
-      (call/cc
-       (lambda (hop)
-         (let f ([i 0])
-           (when (not (= i t))
-             (set! x1 (modulo (* x0 x0) n))
-             (when (and (= 1 x1)
-                        (not (= 1 x0))
-                        (not (= (sub1 n) x0)))
-               (hop #t))
-             (set! x0 x1)
-             (f (add1 i))))
-         (if (= 1 x1)
-           #f
-           #t))))))
+    (let ([t (t-of (sub1 n))]
+          [u (u-of (sub1 n))]
+          [x1 #f]
+          [iter #f])
+      (set! iter
+        (lambda (i x0)
+          (let ([x1 (modulo (* x0 x0) n)])
+            (cond
+              [(= (add1 i) t)
+               x1]
+              [(and (= 1 x1) (< 1 x0) (< x0 (sub1 n)))
+               #t]
+              [else
+               (iter (add1 i) x1)]))))
+      (let ([out (iter 0 (mod-expt a u n))])
+        (if (boolean? out)
+          out
+          (not (= 1 out)))))))
 
-
-(define miller-rabin
-  (lambda (n s)
-    (let f ([i 0]
-            [a (random-integer 2 (- n 2))])
+(define miller-rabin-prime?
+  (lambda (n times)
+    (let f ([i 0])
       (cond
-        [(= i s) #t]
-        [(witness a n) #f]
-        [else
-         (f (add1 i) (random-integer 2 n))]))))
+        [(= i times) #t]
+        [(witness (random 2 (sub1 n)) n) #f]
+        [else (f (add1 i))]))))
 
 
 ;; test
-(map miller-rabin
+(map miller-rabin-prime?
      '(341 561 645 1999 59719 7000061)
      '(5 3 4 5 6 9))
